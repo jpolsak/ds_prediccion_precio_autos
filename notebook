@@ -1,0 +1,644 @@
+# **PREDICCIÓN DEL PRECIO DE UN AUTO EN FUNCIÓN DE SUS CARACTERÍSTICAS**
+
+## **ABSTRACT**
+
+La industria automotriz es una rama importante desde el punto de vista económico. Contribuye con una porción significativa del producto interno bruto mundial (3,65%) y es estratégica para varias regiones del mundo. En el año 2019, la industria automotriz sostuvo el 10% del comercio mundial (1).
+
+Más allá de la venta de autos nuevos existe un comercio de autos usados. Se puede destacar que en Argentina, solamente en 2023, se han vendido más de un millón y medio de autos usados (2).
+
+Partiendo de estas características se ha decidido entender cuáles son las variables que influyen en el precio de un auto. Predecir su valor puede ser muy útil para que diferentes actores de esta industria puedan tomar decisiones económicas fundamentadas (por ejemplo, los fabricantes, a la hora de planificar los nuevos modelos, podrán ponderar qué características influyen en el precio y realizar el análisis de costo-beneficio; los comercios de reventa podrán fijar precios de compra y venta que le permitan tener un margen de ganancia atractivo y/o desestimar los autos que su reventa no sea rentable).
+
+Para lograr el objetivo antes planteado se parte de un dataset obtenido de Kaggle (3) donde se encuentra un detalle de más de 19000 registros de autos con sus características y precio lo que permitirá generar un modelo de regresión para predecir su valor. Entre las características que se pueden mencionar dentro del dataset se encuentran: la empresa que fabricó el auto (Lexus, Chevrolet, etc.), modelo del auto, categoría (jeep, limusina, sedan, etc.), interiores de cuero, cantidad de kilómetros recorridos, cantidad de cilindros, tipo de caja, tracción, cantidad de puertas, color y airbags.
+
+Fuentes:
+
+(1) Automotive supply chain digitalization - Nathalie Fabbe-Costes, Lucie Lechaptois, in The Digital Supply Chain, 2022
+
+(2) https://www.ambito.com/economia/autos-usados-se-vendieron-mas-un-millon-y-medio-2023-n5903463
+
+(3) https://www.kaggle.com/datasets/deepcontractor/car-price-prediction-challenge
+
+##**1. DEFINICIÓN DEL OBJETIVO**
+
+El objetivo principal es entender el comportamiento del precio de los autos para poder maximizar las ganancias tanto de la industria automotriz como de las empresas de reventa de autos usados. Para lograr el objetivo se utilizará un modelo de regresión con el fin de predecir el precio en base a las variables representativas.
+
+##**2. CONTEXTO COMERCIAL**
+
+La industria automotriz constituye una parte importante del producto bruto interno mundial y genera muchos puestos de trabajo. Es una industria estratégica para ciertos países. Los autos usados además generan un comercio interno mediante su reventa (ya sea entre particulares o con empresas de reventa intermediadoras). Para estos actores es útil contar con una herramienta de predicción del precio de los autos para tomar mejores decisiones y maximizar las ganancias. En este sentido, es atractivo entender cómo las caracterísitcas de los autos influyen en su precio.
+
+##**3. PROBLEMA COMERCIAL - HIPÓTESIS**
+
+Partiendo del objetivo principal de la investigación se desprenden las siguientes hipótesis a probar:
+1. El interior de cuero aumenta el precio del auto.
+2. Los autos con motor turbo tienen un precio mayor.
+3. Los autos con caja manual son más económicos.
+4. Los autos más nuevos tienen precios más elevados.
+5. Los autos con tracción de las cuatro ruedas (4x4) son los más caros.
+5. Los colores poco usuales están relacionados a precios más bajos.
+
+
+##**4. CONTEXTO ANALÍTICO**
+
+El dataset elegido fue obtenido desde Kaggle (https://www.kaggle.com/datasets/deepcontractor/car-price-prediction-challenge) y es un detalle de más de 19k autos con sus respectivos precios en formato csv.
+Las variables (caracterísitcas) que se detallan son las siguientes:
+- ID: identificador del registro (no relevante para el análisis)
+- Price: precio del auto
+- Levy: impuestos aplicados
+- Manufacturer: empresa elaboradora del auto (ejemplo: Lexus, Chevrolet, etc.)
+- Model: modelo del auto
+- Category: categoría (Jeep, limusina, sedan, etc.)
+- Leather interior: si posee interior de cuero
+- Fuel type: tipo de combustible utilizado por el motor
+- Mileage: cantidad de km recorridos
+- Cylinders: cantidad de cilindros que posee el motor
+- Gear box type: tipo de caja (automático, manual, etc.)
+- Drive wheels: tipo de tracción (delantera, trasera, 4x4)
+- Doors: cantidad de puertas
+- Color: color del auto
+- Airbag: bolsas de aire
+
+A continuación se procede a descargar los datos del archivo en csv y transformarlo para acondicionarlo para su análisis.
+
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+df0 = pd.read_csv('https://raw.githubusercontent.com/jpolsak/datasets/main/car_price_prediction.csv')
+
+df0
+
+Se hacen ciertas correcciones sobre el dataset original para que pueda ser leído correctamente:
+
+- Se modifican los valores de la variable "Doors" a valores coherentes (los valores 04-may y 02-may se traducen a 4 y 2 respectivamente, el valor >5 se mantiene)
+- Se eliminan los "km" agregados a la variable "Mileage" para que pueda ser utilizada numéricamente
+- Se modifican los "-" de la variable "Levy" para que representen nulos
+- Se divide la variable "Engine volume" en dos: "Engine volume" que mantiene el valor numérico y en una nueva variable booleana llamada "Turbo" que indica yes/no.
+
+El dataset resultante se muestra a continuación.
+
+df = pd.read_csv('https://raw.githubusercontent.com/jpolsak/datasets/main/car_price_prediction_modif.csv')
+
+df
+
+df.describe()
+
+Se procede a mostrar las correlaciones entre las variables numéricas:
+
+sns.heatmap(df.corr(numeric_only=True), cmap="coolwarm", annot=True)
+
+Del análisis de las correlaciones se puede observar que hay alguas variables que se relacionan en cierta medida:
+
+*   El volumen del motor está fuertemente correlacionado (positivamente) a la cantidad de cilindros con un valor de correlación de 0,78.
+*   Motores más grandes están correlacionados con impuestos más altos (Levy) con un valor de correlación de 0,65. Sucede algo similar con la variable cantidad de cilindros (como se mencionó antes las variables cilindros y volumen del motor están relacionadas).
+*   Hay una leve correlación entre la cantidad de airbags con el año de producción y con el volumen del motor (así también con la cantidad de cilindros).
+
+Se evidencia que las variables que se relacionan con el volumen del motor están también relacionadas con la cantidad de cilindros. Esto debe estar relacionado a la fuerte correlación entre las dos variables.
+
+
+
+##**5. ANÁLISIS EXPLORATORIO DE DATOS (EDA)**
+
+###**Análisis univariado de "Manufacturer"**
+
+Del análisis de la variable Manufacturer se puede analizar que existen 65 empresas presentes en el dataset:
+
+
+
+len(set(df.Manufacturer))
+
+Las 15 más repetidas son las siguientes:
+
+df.Manufacturer.value_counts().head(15)
+
+plt.figure(figsize=(20, 5))
+plt.grid(True)
+sns.barplot(data=df.Manufacturer.value_counts().head(15))
+
+El 92% de los registros está concentrado en estas 15 marcas principales:
+
+df.Manufacturer.value_counts().head(15).sum()/df.shape[0]
+
+Quizás sería posible evaluar si es mejor englobar las marcas que tengan menos de cierta cantidad de registros como "Otros", de esa forma se disminuiría un poco la cardinalidad de esta variable y pueda tener más utilidad en el análisis de regresión.
+
+###**Análisis univariado de "Engine volume"**
+
+df["Engine volume"].value_counts().head(10)
+
+plt.figure(figsize=(10, 5))
+sns.histplot(data=df,x='Engine volume')
+
+Del análisis del volumen del motor se encuentra que la mayoría de los autos se encuentran en los valores de 2.0 y 2.5.
+
+###**Análisis univariado de "Model"**
+
+Como era esperable, se puede observar que la cardinalidad de la variable del modelo del auto es mucho mayor: hay 1590 modelos diferentes.
+
+len(set(df.Model))
+
+En el top 50 se puede observar que hay gran cantidad de registros en los primeros modelos más repetidos (Prius, Sonata, Camry y Elantra). Luego las cantidades empiezan a disminuir significativamente.
+
+df.Model.value_counts().head(50)
+
+Utilizando los primeros 50 modelos se alcanza al 65% de los registros por lo que no va a ser muy útil utilizar esta variable como categorización debido a la alta cardinalidad.
+
+df.Model.value_counts().head(50).sum()/df.shape[0]
+
+###**Análisis univariado y bivariado de "Category"**
+
+Del análisis de categoría de autos se puede observar que hay 11 categorías de las cuales las primeras 3 (Sedan, Jeep y Hatchback) ocupan el 88% de los registros.
+
+df.Category.value_counts()
+
+plt.figure(figsize=(15, 5))
+plt.grid(True)
+sns.barplot(data=df.Category.value_counts())
+
+df.Category.value_counts().head(3).sum()/df.shape[0]
+
+A continuación se muestra las distribuciones de los precios en función de la cateogría de auto:
+
+plt.figure(figsize=(15, 5))
+plt.grid(True)
+sns.boxplot(data=df,x='Category',y='Price')
+plt.ylim(0,100000)
+
+###**Análisis univariado y bivariado de "Fuel Type"**
+
+Analizando el tipo de combustible utilizado se puede observar que las categorías más importantes son las de Petrol (nafta), Diesel y Hybrid (híbrido).
+
+df["Fuel type"].value_counts()
+
+plt.figure(figsize=(10, 5))
+plt.grid(True)
+sns.barplot(data=df["Fuel type"].value_counts())
+
+Observando el precio se puede determinar que, de las tres categorías más importantes, los autos Diesel son más caros que los Petrol y los Hybrid son los más baratos (es posible que estén interactuando otras variables que promedien en aumento el precio de los Diesel/Petrol ya que se espera que el costo de un híbrido sea más alto).
+
+plt.figure(figsize=(10, 5))
+plt.grid(True)
+sns.boxplot(data=df,x='Fuel type',y='Price')
+plt.ylim(0,100000)
+
+###**Hipótesis 1:** el interior de cuero aumenta el precio
+
+sns.boxplot(data=df,x='Leather interior',y='Price')
+
+Se disminuye el límite del eje de precio ya que hay valores ingresados muy elevados que no permiten visualizar correctamente el gráfico sacando de escala lo que se pretende analizar.
+
+sns.boxplot(data=df,x='Leather interior',y='Price')
+plt.ylim(0,200000)
+plt.title('Gráfico 1: precio en función de interiores de cuero')
+
+df.groupby('Leather interior')['Price'].mean()
+
+VERDADERO. Como se puede observar en el boxplot anterior el promedio de los precios, tanto para los autos con interior de cuero como los que no tienen, es bastante parecido, sin embargo, los autos más caros están predominantemente en la categoría que sí tienen interiores de cuero.
+
+###**Hipótesis 2:** los autos con motor Turbo tienen un precio mayor que los que no lo son
+
+sns.boxplot(data=df,x='Turbo',y='Price')
+plt.ylim(0,200000)
+plt.title('Gráfico 2: precio en función del tipo de motor (Turbo)')
+
+df.groupby('Turbo')['Price'].mean()
+
+VERDADERO. Es evidente que los que poseen un motor Turbo son en promedio más caro que los que no lo son para este dataset.
+
+###**Hipótesis 3:** los autos manuales son más económicos que los autos automáticos
+
+sns.barplot(data=df,x='Gear box type',y='Price')
+
+sns.barplot(data=df,x='Gear box type',y='Price',hue='Turbo')
+
+Pareciera ser que los autos manuales son más caros pero esto es debido a que hay un registro de un auto manual con un valor muy superior a los demás que le da a esta categoría más variabilidad que a las demás y un promedio mucho mayor. Para solucionar esto se crea un dataset auxiliar eliminando este registro.
+
+idmax = df.loc[df['Price'] == df.Price.max()].index[0]
+
+df.iloc[idmax]
+
+df_sin_outlier = df.drop(idmax)
+
+sns.barplot(data=df_sin_outlier,x='Gear box type',y='Price')
+plt.title('Gráfico 3a: precio en función del tipo de caja')
+
+sns.barplot(data=df_sin_outlier,x='Gear box type',y='Price',hue='Turbo')
+plt.title('Gráfico 3b: precio en función del tipo de caja discriminado por tipo de motor')
+
+df_sin_outlier.groupby(['Gear box type','Turbo'])['Price'].mean()
+
+VERDADERO. De los últimos dos gráficos (sin considerar el registro con el valor de precio más elevado) se puede observar que los autos manuales son los más baratos, le siguen los variator, luego los automáticos y por último los triptronic como los más caros.
+
+###**Hipótesis 4:** los autos más nuevos tienen precios más elevados
+
+plt.figure(figsize=(15, 6))
+sns.scatterplot(data=df_sin_outlier,x='Prod. year',y='Price')
+plt.ylim(0,200000)
+plt.title('Gráfico 4: precio en función del año de producción')
+
+df_sin_outlier.groupby('Prod. year')['Price'].mean()
+
+VERDADERO. A medida que aumenta el año de producción (el auto es más moderno) el precio aumenta. Es notable además que los autos más antiguos de 1980 son mucho menores en cantidad pero los precios son elevados lo que podría estar relacionado a autos de colección o muy bien conservados.
+
+###**Hipótesis 5:** los autos con tracción de cuatro rueadas (4x4) son los más caros
+
+sns.barplot(data=df_sin_outlier,x='Drive wheels',y='Price')
+plt.title('Gráfico 5a: precio en función de tracción')
+
+sns.barplot(data=df_sin_outlier,x='Drive wheels',y='Price',hue='Turbo')
+plt.title('Gráfico 5b: precio en función de tracción discriminado por motor')
+
+df_sin_outlier.groupby(['Drive wheels','Turbo'])['Price'].mean()
+
+VERDADERO. Más allá de que la diferencia general no es tan evidente, el promedio de precio de los autos 4x4 es mayor a los de otras tracciones. Esta diferencia se hace más evidente cuando se discrimina por motores turbo (los autos 4x4 con motores turbo son en promedio bastante más caros que los otros tipos). Los autos con tracción delantera no parecen tener mucha diferencia entre los motores turbo o no. Los autos de tracción trasera son más económicos, igualmente la influencia del tipo de motor parece ser más relevante que el tipo de tracción.
+
+###**Hipótesis 6:** los autos con colores poco usuales tienen precios más bajos
+
+plt.figure(figsize=(15, 6))
+sns.barplot(data=df_sin_outlier,x='Color',y='Price')
+plt.title('Gráfico 6: precio en función del color')
+
+df.Color.value_counts()
+
+df_sin_outlier.groupby('Color')['Price'].mean()
+
+Se puede observar que los colores más "llamativos" o poco usuales (como el violeta o el rosa) tienen en promedio precios más bajos. Los colores más usuales (como el negro, blanco y plateado) tienen precios más elevados. Hay que destacar que el amarillo no cumple esta hipótesis.
+
+Teniendo en cuenta lo analizado en esta sección se puede entender cuáles son las relaciones de algunas variables con el precio del auto (como son el interior de cuero, el tipo de motor Turbo, el tipo de caja, el año de producción, el tipo de tracción y en cierta medida el color del auto). Además se puede ver cierto comportamiento en variables como marca, modelo, categoría, tipo de combustible y volumen del motor que permiten tener más entendiemiento del dataset.
+
+##**6. PREPROCESAMIENTO**
+
+###**A. ANÁLISIS DE VALORES NULOS**
+
+Primero se eliminan los valores duplicados (excluyendo el valor de ID):
+
+df_sin_duplicados = df_sin_outlier.drop('ID',axis=1).drop_duplicates()
+
+Eliminación de los outliers de precio:
+
+sns.boxplot(df_sin_duplicados, x='Price')
+
+Q1 = np.percentile(df_sin_duplicados['Price'], 25)
+
+Q3 = np.percentile(df_sin_duplicados['Price'], 75)
+
+IQR = Q3 - Q1
+
+lower = Q1 - 1.5 * IQR
+
+upper = Q3 + 1.5 * IQR
+
+mask = (df_sin_duplicados['Price'] < lower) | (df_sin_duplicados['Price'] > upper)
+
+mask.sum()
+
+df_sin_duplicados = df_sin_duplicados[~mask]
+
+df_sin_duplicados.shape
+
+Se elimina también la columna de modelo por ser una variable categórica con una muy alta cardinalidad.
+
+df_sin_duplicados = df_sin_duplicados.drop('Model',axis=1)
+
+Se analizan los valores nulos por variable:
+
+df_sin_duplicados.isnull().sum()/df_sin_duplicados.shape[0]
+
+sns.histplot(df_sin_duplicados,x='Levy')
+
+Los valores nulos de esta columna están ingresados como "-" en el dataset original pero fueron modificados a nulos para poder hacer el análisis. No hay explicación si se deben a valores faltantes o si son autos sin impuestos. Se realizará una cross-validation con los cuatro casos (eliminando todos los registros con valores faltantes de Levy, llenando los valores con 0, llenando los valores con la mediana o eliminando la columna):
+
+Levy_median = df_sin_duplicados.Levy.median()
+
+Levy_median
+
+####**I. Utilizando la mediana**
+
+df_Levy_median = df_sin_duplicados.copy()
+
+df_Levy_median['Levy']=df_Levy_median['Levy'].fillna(Levy_median)
+
+df_Levy_median.isnull().sum()/df_Levy_median.shape[0]
+
+####**II. Utilizando el valor 0**
+
+df_Levy_cero = df_sin_duplicados.copy()
+
+df_Levy_cero['Levy']=df_Levy_cero['Levy'].fillna(0)
+
+df_Levy_cero.isnull().sum()/df_Levy_cero.shape[0]
+
+####**III. Eliminando registros**
+
+df_sin_na = df_sin_duplicados.copy()
+
+df_sin_na = df_sin_na.dropna()
+
+df_sin_na.shape
+
+df_sin_na.isnull().sum()/df_sin_na.shape[0]
+
+####**IV. Eliminando variable Levy**
+
+df_sin_Levy = df_sin_duplicados.copy()
+
+df_sin_Levy = df_sin_Levy.drop('Levy', axis=1)
+
+df_sin_Levy.isnull().sum()/df_sin_Levy.shape[0]
+
+###**B. ENCODING DE VARIABLES CATEGÓRICAS**
+
+Se procede a convertir las variables categóricas en dummies. Las variables afectadas serán las del tipo object: marca, categoría, interior de cuero, tipo de combustible, turbo, tipo de caja, volante, puertas y color.
+
+df_sin_duplicados.dtypes
+
+df_Levy_median_dummies = pd.get_dummies(df_Levy_median, drop_first=True).copy()
+
+df_Levy_median_dummies.shape
+
+df_Levy_cero_dummies = pd.get_dummies(df_Levy_cero, drop_first=True).copy()
+
+df_Levy_cero_dummies.shape
+
+df_sin_na_dummies = pd.get_dummies(df_sin_na, drop_first=True).copy()
+
+df_sin_na_dummies.shape
+
+df_sin_Levy_dummies = pd.get_dummies(df_sin_Levy, drop_first=True).copy()
+
+df_sin_Levy_dummies.shape
+
+###**C. SPLIT TRAIN/TEST**
+
+from sklearn.model_selection import train_test_split
+from sklearn.model_selection import KFold
+
+cv5 = KFold(5)
+
+x_Levy_median = df_Levy_median_dummies.drop('Price',axis=1)
+
+x_Levy_cero = df_Levy_cero_dummies.drop('Price',axis=1)
+
+x_sin_na = df_sin_na_dummies.drop('Price',axis=1)
+
+x_sin_Levy = df_sin_Levy_dummies.drop('Price',axis=1)
+
+y_Levy_median = df_Levy_median_dummies.Price
+
+y_Levy_cero = df_Levy_cero_dummies.Price
+
+y_sin_na = df_sin_na_dummies.Price
+
+y_sin_Levy = df_sin_Levy_dummies.Price
+
+x_train_Levy_median, x_test_Levy_median, y_train_Levy_median, y_test_Levy_median = train_test_split(x_Levy_median,y_Levy_median)
+
+x_train_Levy_cero, x_test_Levy_cero, y_train_Levy_cero, y_test_Levy_cero = train_test_split(x_Levy_cero,y_Levy_cero)
+
+x_train_sin_na, x_test_sin_na, y_train_sin_na, y_test_sin_na = train_test_split(x_sin_na,y_sin_na)
+
+x_train_sin_Levy, x_test_sin_Levy, y_train_sin_Levy, y_test_sin_Levy = train_test_split(x_sin_Levy,y_sin_Levy)
+
+## DATA STORYTELLING - Introducción y análisis de variables
+
+La industria automotriz es un sector importante de la economía mundial contribuyendo con el 3,65% del PBI alcanzando el 10% del comercio mundial en 2019.
+
+En los últimos 30 años la producción de vehículos ha estado en aumento como se puede observar en el siguiente gráfico en base a los datos obtenidos en https://www.bts.gov/content/world-motor-vehicle-production-selected-countries:
+
+# importación de librería
+import plotly.express as px
+
+#descarga de dataset
+df_prod = pd.read_csv("https://raw.githubusercontent.com/jpolsak/datasets/main/cars_production_worlwide_historic.csv")
+
+#listado de países con mayor contribución de produccción para filtrar el gráfico posteriormente
+lista_paises = df_prod.groupby('country')['production'].sum().sort_values(ascending=False).head(8)
+lista_paises = lista_paises.index.tolist()
+lista_paises.append('Argentina')
+
+#manipulación de dataset (conversión de la producción de miles de unidades a unidades reales, filtro de años y ordenamiento)
+df_prod['prod_real']= df_prod['production'] * 1000
+df_prod94 = df_prod[(df_prod.year>1993)&(df_prod.year<2020)].sort_values(by=['year','prod_real'],ascending=[True,True])
+df_prod94_filt = df_prod94 = df_prod94[df_prod94['country'].isin(lista_paises)]
+df_prod94_filt = df_prod94_filt.rename(columns={'year': 'Año'})
+
+#creación del gráfico de producción mundial en el tiempo
+fig1= px.bar(df_prod94_filt,x='prod_real',y='country',animation_frame='Año',range_x=[0,1e8], color='prod_real', color_continuous_scale='Matter',color_continuous_midpoint=50000000)
+fig1.update_layout(xaxis_title='Cantidad de vehículos producidos', yaxis_title='País', title='Evolución en el tiempo de la producción mundial de vehículos (1994-2020)')
+
+Además de tener en cuenta la producción a nivel mundial y su comercio, existe un mercado de reventa que podría ser también interesante de analizar (en Argentina, solamente en 2023, se vendieron más de 1,5 millones de autos usados).
+
+Para ambos actores sería útil contar con una herramienta de predicción de precios de acuerdo a las características de los autos (ya sea para la planificación de la producción en caso de las empresas manufactureras como para la reventa de los autos).
+
+Para poder generar una herramienta de estas características se decide avanzar con el desarrollo de un proyecto de machine learning evaluando datos de más de 19 mil autos y sus precios.
+
+Luego de la eliminación de valores atípicos, limpieza e imputación de valores nulos, se logró obtener un dataset útil para el entrenamiento del modelo con más de 14700 registros.
+
+En este dataset se pueden analizar variables como el año de producción del vehículo, el fabricante, si tiene motor Turbo, interior de cuero, tipo de caja, combustible utilizado, entre otros parámetros.
+
+Se puede observar que la variable Manufacturer (fabricante) tiene cierta influencia sobre el promedio de precio de los autos. A continuación se pueden observar los precios promedio de los 5 fabricantes más caros:
+
+#creación de serie auxiliar para la representación de los valores promedios de precio según el fabricante con posterior visualización
+manufac = df_Levy_cero.groupby('Manufacturer')['Price'].mean().sort_values(ascending=False).head(5)
+manufac = manufac.sort_values(ascending=True)
+fig2 = px.bar(x=manufac.values,y=manufac.index,color=manufac.values,color_continuous_scale='Matter',color_continuous_midpoint=df_Levy_cero.Price.mean())
+fig2.update_layout(xaxis_title='Precio promedio', yaxis_title='Fabricante', title='Autos con precio promedio más alto según el fabricante')
+
+En el siguiente gráfico se puede observar que al aumentar la antigüedad de los autos el precio disminuye. Esto es evidente para el período 1983 a la actualidad, sin embargo, hay autos más antiguos que no siguen esta lógica. Esto puede deberse a que hay pocos registros para los autos antiguos, como se puede observar en el segundo gráfico, o porque los autos antiguos tiene un precio intrínseco diferente a los autos actuales.
+
+#análisis de precio según el año de manufatura
+prodyear = df_Levy_cero.groupby('Prod. year')['Price'].mean()
+prodyear
+fig3 = px.bar(x=prodyear.index,y=prodyear.values,color=prodyear.values,color_continuous_scale='Matter',color_continuous_midpoint=df_Levy_cero.Price.mean())
+fig3.update_layout(xaxis_title='Año de fabricación', yaxis_title='Precio promedio', title='Precio promedio de los autos de acuerdo a su año de fabricación')
+
+fig4 = px.histogram(df_Levy_cero['Prod. year'],color_discrete_sequence=['#D44C54'])
+fig4.update_layout(xaxis_title='Año de fabricación', yaxis_title='Recuento de registros', title='Distribución de registros según el año de fabricación')
+
+Analizando si el auto tiene interior de cuero o no y si el motor es Turbo se puede observar que generalmente estas características aumentan el valor del automóvil.
+
+fig5 = px.box(df_Levy_cero, x='Leather interior', y='Price', color='Turbo', color_discrete_sequence=['#D44C54', '#521652'])
+fig5.update_layout(xaxis_title='Interior de cuero', yaxis_title='Precio', title='Influencia del motor turbo e interiores de cuero en el precio')
+
+#contador de autos por color y por año
+cuenta = []
+for i in range(len(df_Levy_cero.Color.unique())):
+  for j in range(len(df_Levy_cero['Prod. year'].unique())):
+    dfaux = df_Levy_cero[(df_Levy_cero.Color==df_Levy_cero.Color.unique()[i]) & (df_Levy_cero['Prod. year']==df_Levy_cero['Prod. year'].unique()[j])]
+    cuenta.append([df_Levy_cero.Color.unique()[i],df_Levy_cero['Prod. year'].unique()[j],dfaux.shape[0]])
+
+#creción de dataset auxiliar y ordenamiento
+dfcolor = pd.DataFrame(cuenta)
+dfcolor.columns = ['Color','Año','Cantidad']
+
+dfcolor.Año.astype(int)
+lista_colores = df_Levy_cero.Color.value_counts().index.tolist()
+dfcolor['Color'] = pd.Categorical(dfcolor['Color'], categories=lista_colores, ordered=True)
+dfcolor = dfcolor.sort_values(by=['Color','Año'])
+
+
+
+Como se puede observar en el siguiente gráfico, los autos más comunes son los autos de color negro, gris y blanco. Los colores menos frecuentes, como el rosa y el púrpura tienen una mediana de precio menor a los demás colores.
+
+
+#visualización de autos por color a lo largo del tiempo
+fig6 = px.scatter(dfcolor[(dfcolor.Año > 1990) & (dfcolor.Año < 2015)], x = "Color", y = "Cantidad",
+           color="Cantidad", color_continuous_scale='Matter', color_continuous_midpoint=dfcolor.Cantidad.max()*0.55,
+           animation_frame = "Año", size = 'Cantidad', range_y=[0,dfcolor.Cantidad.max()*1.1])
+fig6.update_layout(xaxis_title='Color del automóvil', yaxis_title='Cantidad', title='Cantidad de autos por color a lo largo del tiempo (fecha de fabricación)')
+
+df_Levy_cero['Color'] = pd.Categorical(df_Levy_cero['Color'], categories=lista_colores, ordered=True)
+fig7 = px.box(df_Levy_cero.sort_values(by='Color'), x='Color', y='Price',color_discrete_sequence=['#521652'])
+fig7.update_layout(xaxis_title='Color del automóvil', yaxis_title='Precio', title='Distribución del precio del auto según el color')
+
+Del siguiente gráfico se puede inferir el impacto que tiene el tipo de caja sobre el precio del auto. En rasgos generales se puede inferir que en promedio los autos manuales son más económicos.
+
+fig8 = px.box(df_Levy_cero, x='Gear box type', y='Price', color='Turbo', color_discrete_sequence=['#D44C54', '#521652'])
+fig8.update_layout(xaxis_title='Tipo de caja', yaxis_title='Precio', title='Influencia del tipo de caja en el precio')
+
+Fue necesario realizar el encoding de las variables categóricas lo que generó la mulplicación de las variables, pasando de 17 a 108:
+
+df_Levy_cero.shape
+
+df_Levy_cero_dummies.shape
+
+##**7. MODELADO**
+
+Como siguientes pasos del proyecto se puede mencionar la utilización de diferentes modelos de regresión para alcanzar una performance mayor.
+
+###**A. CROSS-VALIDATION: DECISIÓN SOBRE COLUMNA LEVY**
+
+from sklearn.model_selection import cross_val_score
+from sklearn.metrics import r2_score
+from sklearn.linear_model import LinearRegression
+
+modelo_1 = LinearRegression()
+modelo_2 = LinearRegression()
+modelo_3 = LinearRegression()
+modelo_4 = LinearRegression()
+
+cross_val_score(modelo_1,x_train_Levy_median,y_train_Levy_median, cv=cv5).mean()
+
+cross_val_score(modelo_2,x_train_Levy_cero,y_train_Levy_cero, cv=cv5).mean()
+
+cross_val_score(modelo_3,x_train_sin_na,y_train_sin_na, cv=cv5).mean()
+
+cross_val_score(modelo_4,x_train_sin_Levy,y_train_sin_Levy, cv=cv5).mean()
+
+Más allá de que los valores de R2 no son muy diferentes, excluyendo el de eliminar los registros (que obtiene un R2 negativo), se procede con el caso que posee un R2 levemente superior: imputar el valor 0 en los registros.
+
+x_train = x_train_Levy_cero
+x_test = x_test_Levy_cero
+y_train = y_train_Levy_cero
+y_test = y_test_Levy_cero
+df_dummies = df_Levy_cero_dummies
+
+###**B. FEATURE SELECTION**
+
+Para la reducción de dimensionalidad se procede a utilizar un método de feature selection del tipo forward. Se prueba utlizar solamente 7 variables y se compara con la utlización de todas las variables (sin feature selection).
+
+from mlxtend.feature_selection import SequentialFeatureSelector as SFS
+
+####**I. 7 variables**
+
+sfs7 = SFS(LinearRegression(), k_features=7, cv=cv5)
+
+sfs7.fit(x_train, y_train)
+
+list(sfs7.k_feature_names_)
+
+x_train_7 = x_train[list(sfs7.k_feature_names_)]
+
+x_test_7 = x_test[list(sfs7.k_feature_names_)]
+
+modelo_7_variables = LinearRegression()
+
+cross_val_score(modelo_7_variables, x_train_7, y_train, cv=cv5)
+
+cross_val_score(modelo_7_variables, x_train_7, y_train, cv=cv5).mean()
+
+####**II. Sin feature selection**
+
+modelo_todas = LinearRegression()
+
+cross_val_score(modelo_todas, x_train, y_train, cv=cv5)
+
+cross_val_score(modelo_todas, x_train, y_train, cv=cv5).mean()
+
+Con las principales 7 variables elegidas por el feautre selection se llega a un R2 de 0,3 y utilizando todas se alcanza un 0,38. El R2 máximo obtenido no es satisfactorio completamente pero se puede destacar que la cantidad de variables se disminuye drásticamente (de más de 100 a solamente 7) mantiendo el R2 en el rango 0,3-0,4.
+
+###**C. VALIDACIÓN DEL MODELO**
+
+Utilizando todas las variables se llega al siguiente R2:
+
+modelo_todo = LinearRegression()
+
+modelo_todo.fit(x_train, y_train)
+
+y_pred_todo = modelo_todo.predict(x_test)
+
+r2_score(y_test, y_pred_todo)
+
+Al utilizar solamente 7 variables se llega a un R2 positivo y cercano al alacanzado en el entrenamiento del modelo:
+
+modelo = LinearRegression()
+
+modelo.fit(x_train_7, y_train)
+
+y_pred = modelo.predict(x_test_7)
+
+r2_score(y_test, y_pred)
+
+Más allá que el R2 alcanzado con 7 variables (0,31) es menor que el alcanzado con la utilización de todas (0,38) se puede demostrar una gran reducción de las variables a utilizar manteniendo la mayoría del poder de predicción (se disminuyó desde más de 100 variables a solamente 7). Sería posible utilizar otros algoritmos y/u otras estrategias de acondicionamiento de datos para comprobar si es posible alcanzar valores más elevados .
+
+A continuación se analizan el valor del MSE y los residuos para evaluar la aplicabilidad de la regresión lineal:
+
+from sklearn.metrics import mean_squared_error
+
+MSE = mean_squared_error(y_test,y_pred)
+MSE
+
+np.sqrt(MSE)
+
+El valor de la raíz del MSE infiere en unidades de la variable target (valor del precio del auto) en cuanto se desvía entre lo que se predice y el valor verdadero. Este valor es bastante elevado por lo que será necesario mejorar el modelo para reducir este valor.
+
+Del análisis de los residuos se obtiene la siguiente información:
+
+error = y_pred - y_test
+
+from scipy.stats import norm
+sns.histplot(x=error,stat='density')
+mean = error.mean()
+std = error.std()
+x = np.linspace(error.min(), error.max(), 100)
+p = norm.pdf(x, mean, std)
+plt.plot(x, p, 'r', linewidth=2)
+
+error.describe()
+
+import scipy.stats as stats
+stats.probplot(error, dist="norm", plot=plt)
+plt.show()
+
+En aspectos generales la distribución de errores tiende a un comportamiento normal. La media está muy cercana al valor 0, sin embargo, la mediana tiene cierta desviación positiva que se observa con el corrimiento de la distribución levemente hacia la derecha con respecto a la normal.
+
+##DATA STORYTELLING - Preprocesamiento y modelado
+
+Una vez generada las variables codificafas se obtuvo un dataset de muy alta dimensionalidad (más de 100 variables), sin embargo, se realizaron técnicas de feature selection que permitieron reducir la cantidad de variables empleadas para la predicción a solamente 7 manteniendo el poder de predicción entre el 30 y el 40% utilizando un modelo de regresión lineal. Esto es muy importante ya que simplifica significativamente el modelo manteniendo cierto poder predictivo (utilizando solo el 6% de las variables se mantiene el 80% del poder de predicción).
+
+Las variables más significativas resultaron ser las siguientes:
+
+list(sfs7.k_feature_names_)
+
+- Levy: los impuestos aplicados sobre el automóvil
+- Prod. year: el año de fabricación del automóvil
+- Airbags: la cantidad de bolsas de aire que tenga el automóvil
+- Category_Jeep: categoría igual a Jeep
+- Fuel type_Diesel: cuando el tipo de combustible es diesel
+- Gear box type_Tiptronic: caja del tipo tiptrónica
+- Drive wheels_Rear: cuando tiene tracción trasera
+
+Luego de la validación del modelo se alcanzó un R2 de 0,3. Indicando que el modelo es capaz de explicar el 30% de la variablidad de los datos:
+
+r2_score(y_test, y_pred)
+
+Más allá de el resultado obtenido, cabe destacar que existen otros modelos de machine learning aplicables que podría ser útil evaluar para obtener un modelo con mayor poder de predicción.
